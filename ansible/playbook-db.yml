@@ -1,0 +1,137 @@
+---
+# Database Server Playbook - Install and Configure MongoDB
+- name: Setup MongoDB on Database Server
+  hosts: dbserver
+  become: yes
+  vars:
+    mongodb_version: "7.0"
+    mongodb_admin_user: "admin"
+    mongodb_admin_password: "TravelMemory@2024"
+    mongodb_app_user: "travelmemory"
+    mongodb_app_password: "TravelMem@2024"
+    mongodb_app_db: "travelmemory"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install prerequisite packages
+      apt:
+        name:
+          - gnupg
+          - curl
+          - apt-transport-https
+          - ca-certificates
+          - software-properties-common
+          - python3-pip
+          - python3-pymongo
+          - ufw
+        state: present
+
+    - name: Import MongoDB GPG key
+      ansible.builtin.shell: |
+        curl -fsSL https://www.mongodb.org/static/pgp/server-{{ mongodb_version }}.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-{{ mongodb_version }}.gpg
+      args:
+        creates: /usr/share/keyrings/mongodb-server-{{ mongodb_version }}.gpg
+
+    - name: Add MongoDB repository
+      ansible.builtin.apt_repository:
+        repo: "deb [ signed-by=/usr/share/keyrings/mongodb-server-{{ mongodb_version }}.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/{{ mongodb_version }} multiverse"
+        state: present
+        filename: mongodb-org-{{ mongodb_version }}
+
+    - name: Install MongoDB
+      apt:
+        name: mongodb-org
+        state: present
+        update_cache: yes
+
+    - name: Configure MongoDB to listen on all interfaces
+      template:
+        src: templates/mongod.conf.j2
+        dest: /etc/mongod.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart MongoDB
+
+    - name: Start and enable MongoDB
+      systemd:
+        name: mongod
+        state: started
+        enabled: yes
+
+    - name: Wait for MongoDB to be ready
+      wait_for:
+        port: 27017
+        delay: 5
+        timeout: 30
+
+    - name: Create MongoDB admin user
+      community.mongodb.mongodb_user:
+        database: admin
+        name: "{{ mongodb_admin_user }}"
+        password: "{{ mongodb_admin_password }}"
+        roles:
+          - { db: admin, role: userAdminAnyDatabase }
+          - { db: admin, role: readWriteAnyDatabase }
+        state: present
+      ignore_errors: yes
+
+    - name: Create application database user
+      community.mongodb.mongodb_user:
+        database: "{{ mongodb_app_db }}"
+        name: "{{ mongodb_app_user }}"
+        password: "{{ mongodb_app_password }}"
+        roles:
+          - { db: "{{ mongodb_app_db }}", role: readWrite }
+        state: present
+      ignore_errors: yes
+
+    - name: Configure UFW - Allow SSH
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+    - name: Configure UFW - Allow MongoDB from VPC
+      ufw:
+        rule: allow
+        port: '27017'
+        proto: tcp
+        src: '10.0.0.0/16'
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    - name: Disable root login via SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
+      notify: Restart SSH
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+      notify: Restart SSH
+
+  handlers:
+    - name: Restart MongoDB
+      systemd:
+        name: mongod
+        state: restarted
+
+    - name: Restart SSH
+      systemd:
+        name: sshd
+        state: restarted

@@ -1,0 +1,8 @@
+---
+# Master Playbook - Run both database and web server setup
+- name: Deploy TravelMemory MERN Application
+  hosts: all
+  gather_facts: yes
+
+- import_playbook: playbook-db.yml
+- import_playbook: playbook-web.yml

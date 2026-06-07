@@ -1,0 +1,20 @@
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+terraform/*.pem
+
+# Ansible
+ansible/*.retry
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Screenshots (include them)
+# screenshots/

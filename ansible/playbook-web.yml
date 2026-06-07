@@ -1,0 +1,214 @@
+---
+# Web Server Playbook - Install Node.js, Deploy MERN Application
+- name: Setup Web Server and Deploy TravelMemory Application
+  hosts: webserver
+  become: yes
+  vars:
+    nodejs_version: "18"
+    app_directory: /home/ubuntu/TravelMemory
+    db_private_ip: "10.0.2.161"
+    web_public_ip: "43.205.237.130"
+    backend_port: 3001
+    frontend_port: 3000
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install prerequisite packages
+      apt:
+        name:
+          - curl
+          - git
+          - build-essential
+          - nginx
+          - ufw
+        state: present
+
+    - name: Install Node.js setup script
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_{{ nodejs_version }}.x | bash -
+      args:
+        creates: /etc/apt/sources.list.d/nodesource.list
+
+    - name: Install Node.js and NPM
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+    - name: Verify Node.js installation
+      command: node --version
+      register: node_version
+      changed_when: false
+
+    - name: Verify NPM installation
+      command: npm --version
+      register: npm_version
+      changed_when: false
+
+    - name: Display Node.js and NPM versions
+      debug:
+        msg: "Node.js: {{ node_version.stdout }}, NPM: {{ npm_version.stdout }}"
+
+    - name: Install PM2 globally
+      npm:
+        name: pm2
+        global: yes
+        state: present
+
+    - name: Clone TravelMemory repository
+      git:
+        repo: https://github.com/UnpredictablePrashant/TravelMemory.git
+        dest: "{{ app_directory }}"
+        version: main
+        force: yes
+      become_user: ubuntu
+
+    - name: Install backend dependencies
+      npm:
+        path: "{{ app_directory }}/backend"
+        state: present
+      become_user: ubuntu
+
+    - name: Create backend .env file
+      copy:
+        content: |
+          MONGO_URI=mongodb://{{ db_private_ip }}:27017/travelmemory
+          PORT={{ backend_port }}
+        dest: "{{ app_directory }}/backend/.env"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0600'
+
+    - name: Install frontend dependencies
+      npm:
+        path: "{{ app_directory }}/frontend"
+        state: present
+      become_user: ubuntu
+
+    - name: Create frontend .env file
+      copy:
+        content: |
+          REACT_APP_BACKEND_URL=http://{{ web_public_ip }}:{{ backend_port }}
+        dest: "{{ app_directory }}/frontend/.env"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+
+    - name: Build React frontend
+      shell: |
+        cd {{ app_directory }}/frontend && npm run build
+      become_user: ubuntu
+      environment:
+        CI: "false"
+
+    - name: Stop existing PM2 processes
+      shell: pm2 delete all
+      become_user: ubuntu
+      ignore_errors: yes
+
+    - name: Start backend with PM2
+      shell: |
+        cd {{ app_directory }}/backend && pm2 start index.js --name "travelmemory-backend"
+      become_user: ubuntu
+
+    - name: Save PM2 process list
+      shell: pm2 save
+      become_user: ubuntu
+
+    - name: Setup PM2 startup script
+      shell: |
+        pm2 startup systemd -u ubuntu --hp /home/ubuntu | tail -1 | bash
+      ignore_errors: yes
+
+    - name: Configure Nginx as reverse proxy
+      template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/travelmemory
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Nginx
+
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/travelmemory
+        dest: /etc/nginx/sites-enabled/travelmemory
+        state: link
+      notify: Restart Nginx
+
+    - name: Remove default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Restart Nginx
+
+    - name: Test Nginx configuration
+      command: nginx -t
+      changed_when: false
+
+    - name: Configure UFW - Allow SSH
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+    - name: Configure UFW - Allow HTTP
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+
+    - name: Configure UFW - Allow HTTPS
+      ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+
+    - name: Configure UFW - Allow Backend
+      ufw:
+        rule: allow
+        port: '3001'
+        proto: tcp
+
+    - name: Configure UFW - Allow Frontend
+      ufw:
+        rule: allow
+        port: '3000'
+        proto: tcp
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    - name: Disable root login via SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
+      notify: Restart SSH
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+      notify: Restart SSH
+
+  handlers:
+    - name: Restart Nginx
+      systemd:
+        name: nginx
+        state: restarted
+
+    - name: Restart SSH
+      systemd:
+        name: sshd
+        state: restarted
