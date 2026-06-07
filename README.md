@@ -11,7 +11,7 @@ Before starting, ensure you have:
 1. **AWS Account** with programmatic access (Access Key + Secret Key)
 2. **AWS CLI** installed and configured
 3. **Terraform** (v1.0+) installed
-4. **Ansible** (v2.9+) installed (use WSL/Linux — Ansible doesn't run natively on Windows)
+4. **Ansible** (v2.9+) installed (use WSL/Linux - Ansible doesn't run natively on Windows)
 5. **Git** installed
 
 ---
@@ -92,7 +92,7 @@ terraform apply
 #   ssh_key_file path
 ```
 
-**Save the output values** — you'll need them for Ansible.
+**Save the output values** - you'll need them for Ansible.
 
 ### STEP 6: Update Ansible Inventory
 
@@ -217,9 +217,3 @@ TravelMemory-Deployment/
 | AMI not found | Find latest Ubuntu 22.04 AMI for your region (see Step 4 note) |
 
 ---
-
-## Submission
-
-1. Push this entire repository to GitHub
-2. Create a text/PDF file with the GitHub repo link
-3. Submit via Vlearn
