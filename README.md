@@ -155,8 +155,8 @@ Capture screenshots of:
 2. `ansible-playbook` execution output
 3. Application running in browser (frontend)
 4. API response (backend)
-5. AWS Console → EC2 instances
-6. AWS Console → VPC/Subnets
+5. AWS Console -> EC2 instances
+6. AWS Console -> VPC/Subnets
 
 Save in the `screenshots/` folder.
 
@@ -170,7 +170,7 @@ terraform destroy
 # Type 'yes' to confirm
 ```
 
-⚠️ **Important:** Always destroy resources after you're done to avoid AWS charges!
+**Important:** Always destroy resources after you're done to avoid AWS charges!
 
 ---
 

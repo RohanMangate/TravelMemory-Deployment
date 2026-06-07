@@ -12,33 +12,32 @@ This report documents the deployment of the **TravelMemory** MERN (MongoDB, Expr
 ## 2. Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         AWS VPC (10.0.0.0/16)                    │
-│                                                                   │
-│  ┌─────────────────────────────┐  ┌────────────────────────────┐ │
-│  │    Public Subnet             │  │    Private Subnet           │ │
-│  │    (10.0.1.0/24)            │  │    (10.0.2.0/24)           │ │
-│  │                             │  │                            │ │
-│  │  ┌───────────────────────┐  │  │  ┌──────────────────────┐ │ │
-│  │  │   Web Server (EC2)    │  │  │  │  DB Server (EC2)     │ │ │
-│  │  │                       │  │  │  │                      │ │ │
-│  │  │  - Nginx (Port 80)    │  │  │  │  - MongoDB (27017)   │ │ │
-│  │  │  - Node.js Backend    │──┼──┼──│                      │ │ │
-│  │  │    (Port 3001)        │  │  │  │                      │ │ │
-│  │  │  - React Frontend     │  │  │  │                      │ │ │
-│  │  │    (Static Build)     │  │  │  │                      │ │ │
-│  │  └───────────────────────┘  │  │  └──────────────────────┘ │ │
-│  │           │                  │  │           │               │ │
-│  └───────────┼──────────────────┘  └───────────┼───────────────┘ │
-│              │                                  │                  │
-│  ┌───────────┴──────┐              ┌───────────┴──────┐          │
-│  │  Internet Gateway │              │   NAT Gateway    │          │
-│  └───────────┬──────┘              └──────────────────┘          │
-└──────────────┼───────────────────────────────────────────────────┘
-               │
-          ┌────┴────┐
-          │ Internet │
-          └─────────┘
++-------------------------------------------------------------------+
+|                       AWS VPC (10.0.0.0/16)                        |
+|                                                                    |
+|  +-----------------------------+  +-----------------------------+  |
+|  |    Public Subnet            |  |    Private Subnet           |  |
+|  |    (10.0.1.0/24)           |  |    (10.0.2.0/24)           |  |
+|  |                            |  |                            |  |
+|  |  +----------------------+  |  |  +----------------------+  |  |
+|  |  | Web Server (EC2)     |  |  |  | DB Server (EC2)      |  |  |
+|  |  |                      |  |  |  |                      |  |  |
+|  |  | - Nginx (Port 80)    |  |  |  | - MongoDB (27017)    |  |  |
+|  |  | - Node.js Backend    |--+--+--| (connects from web)  |  |  |
+|  |  |   (Port 3001)        |  |  |  |                      |  |  |
+|  |  | - React Frontend     |  |  |  |                      |  |  |
+|  |  +----------------------+  |  |  +----------------------+  |  |
+|  |           |                |  |           |                |  |
+|  +-----------+----------------+  +-----------+----------------+  |
+|              |                               |                    |
+|    +---------+--------+           +----------+---------+          |
+|    | Internet Gateway |           |    NAT Gateway     |          |
+|    +---------+--------+           +--------------------+          |
++--------------+----------------------------------------------------+
+               |
+          +----+----+
+          | Internet|
+          +---------+
 ```
 
 ---
@@ -53,7 +52,7 @@ This report documents the deployment of the **TravelMemory** MERN (MongoDB, Expr
 | Private Subnet | 10.0.2.0/24 (ap-south-1a) - No public access |
 | Internet Gateway | Routes public subnet traffic to internet |
 | NAT Gateway | Allows private subnet outbound internet (for updates) |
-| Route Tables | Public → IGW, Private → NAT GW |
+| Route Tables | Public -> IGW, Private -> NAT GW |
 
 ### 3.2 EC2 Instances
 | Instance | Subnet | Purpose | Access |
@@ -79,20 +78,20 @@ This report documents the deployment of the **TravelMemory** MERN (MongoDB, Expr
 ## 4. Configuration & Deployment (Ansible)
 
 ### 4.1 Database Server Configuration
-1. **MongoDB 7.0 Installation** — Added official MongoDB repository and installed
-2. **Network Binding** — Configured to listen on all interfaces (0.0.0.0) for internal VPC access
-3. **User Creation** — Created admin user and application-specific user with readWrite permissions
-4. **Firewall (UFW)** — Only allows SSH (22) and MongoDB (27017) from VPC CIDR
+1. **MongoDB 7.0 Installation** - Added official MongoDB repository and installed
+2. **Network Binding** - Configured to listen on all interfaces (0.0.0.0) for internal VPC access
+3. **User Creation** - Created admin user and application-specific user with readWrite permissions
+4. **Firewall (UFW)** - Only allows SSH (22) and MongoDB (27017) from VPC CIDR
 
 ### 4.2 Web Server Configuration
-1. **Node.js 18 LTS** — Installed via NodeSource repository
-2. **Application Cloning** — Git clone of TravelMemory repo
-3. **Dependencies** — `npm install` for both backend and frontend
-4. **Environment Variables** — `.env` files configured with MongoDB URI and backend URL
-5. **Frontend Build** — React app built for production (`npm run build`)
-6. **PM2 Process Manager** — Backend runs as a managed daemon with auto-restart
-7. **Nginx Reverse Proxy** — Serves React static build and proxies API requests to Express backend
-8. **Firewall (UFW)** — Allows SSH, HTTP, HTTPS, and application ports
+1. **Node.js 18 LTS** - Installed via NodeSource repository
+2. **Application Cloning** - Git clone of TravelMemory repo
+3. **Dependencies** - `npm install` for both backend and frontend
+4. **Environment Variables** - `.env` files configured with MongoDB URI and backend URL
+5. **Frontend Build** - React app built for production (`npm run build`)
+6. **PM2 Process Manager** - Backend runs as a managed daemon with auto-restart
+7. **Nginx Reverse Proxy** - Serves React static build and proxies API requests to Express backend
+8. **Firewall (UFW)** - Allows SSH, HTTP, HTTPS, and application ports
 
 ### 4.3 Security Hardening
 - SSH root login disabled
@@ -109,31 +108,22 @@ This report documents the deployment of the **TravelMemory** MERN (MongoDB, Expr
 
 ```
 User Browser
-     │
-     ▼
-┌─────────────┐
-│   Nginx     │ (Port 80)
-│  (Web Srv)  │
-└─────┬───────┘
-      │
-      ├── Static requests (/, /about, etc.)
-      │         │
-      │         ▼
-      │   React Build Files (/home/ubuntu/TravelMemory/frontend/build)
-      │
-      └── API requests (/tripdetails, /api/*)
-                │
-                ▼
-        ┌───────────────┐
-        │  Express.js   │ (Port 3001)
-        │   Backend     │
-        └───────┬───────┘
-                │
-                ▼ (MongoDB connection via private IP)
-        ┌───────────────┐
-        │   MongoDB     │ (Port 27017, Private Subnet)
-        │  (DB Server)  │
-        └───────────────┘
+     |
+     v
+[  Nginx (Port 80)  ]
+     |
+     |-- Static requests (/, /about, etc.)
+     |         |
+     |         v
+     |   React Build Files (/home/ubuntu/TravelMemory/frontend/build)
+     |
+     |-- API requests (/trip, /api/*)
+                |
+                v
+        [ Express.js Backend (Port 3001) ]
+                |
+                v (MongoDB connection via private IP)
+        [ MongoDB (Port 27017, Private Subnet) ]
 ```
 
 1. **User** accesses the application via the web server's public IP on port 80
@@ -157,7 +147,7 @@ User Browser
 
 | Test | Command / URL | Result |
 |------|---------------|--------|
-| Frontend | http://43.205.237.130 | 200 OK — React app loads |
+| Frontend | http://43.205.237.130 | 200 OK - React app loads |
 | Backend API | http://43.205.237.130:3001/trip/ | Returns `[]` (empty trips array) |
 | Backend Health | http://43.205.237.130:3001/hello | Returns "Hello World!" |
 | SSH Security | Only key-based auth | Root login disabled, password auth disabled |
