@@ -4,7 +4,8 @@
 
 This report documents the deployment of the **TravelMemory** MERN (MongoDB, Express.js, React, Node.js) stack application on AWS infrastructure using **Terraform** for infrastructure provisioning and **Ansible** for configuration management and application deployment.
 
-**Application Repository:** https://github.com/UnpredictablePrashant/TravelMemory
+**Application Repository:** https://github.com/UnpredictablePrashant/TravelMemory  
+**Deployment Repository:** https://github.com/RohanMangate/TravelMemory-Deployment
 
 ---
 
@@ -154,22 +155,24 @@ User Browser
 
 ## 7. Testing & Verification
 
-- **Backend API:** `curl http://<web_server_ip>:3001/tripdetails` returns JSON
-- **Frontend:** Browser navigates to `http://<web_server_ip>` shows TravelMemory UI
-- **Database:** MongoDB stores entries created via the frontend
-- **SSH Security:** Only key-based auth works; root login denied
-- **Network Isolation:** DB server not accessible from internet
+| Test | Command / URL | Result |
+|------|---------------|--------|
+| Frontend | http://43.205.237.130 | 200 OK — React app loads |
+| Backend API | http://43.205.237.130:3001/trip/ | Returns `[]` (empty trips array) |
+| Backend Health | http://43.205.237.130:3001/hello | Returns "Hello World!" |
+| SSH Security | Only key-based auth | Root login disabled, password auth disabled |
+| Network Isolation | DB on private subnet 10.0.2.161 | Not accessible from internet |
 
 ---
 
 ## 8. Screenshots
 
-> Place screenshots in the `/screenshots` directory showing:
-> 1. Terraform apply output with resource creation
-> 2. Ansible playbook execution output
-> 3. Application running in browser
-> 4. API response from backend
-> 5. AWS Console showing EC2 instances, VPC, and Security Groups
+| # | Screenshot | Description |
+|---|-----------|-------------|
+| 1 | ![EC2 Instances](screenshots/EC2_instances_running.png) | AWS EC2 console showing both instances running |
+| 2 | ![Hello World](screenshots/Hello%20World!%20response.png) | Backend API health check response |
+| 3 | ![TravelMemory App](screenshots/TravelMemory%20app%20page.png) | Frontend application loaded in browser |
+| 4 | ![VPC](screenshots/VPC.png) | AWS VPC configuration |
 
 ---
 
